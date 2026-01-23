@@ -1,0 +1,18 @@
+.body {
+    flex: 0.7;
+    border: 1px solid #dbdbdb;
+    position: relative;
+
+    >.content {
+        padding: 1em;
+        overflow: auto;
+    }
+
+    >.inputBar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        padding: 10px;
+    }
+}

@@ -1,0 +1,97 @@
+// 展开时的样式
+.sider {
+    height: 100%;
+    background: #fff;
+    border-right: 1px solid #f0f0f0;
+
+    >:global(.ant-layout-sider-children) {
+        display: flex;
+        flex-direction: column;
+
+        >.head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+            padding: 0 16px;
+            font-weight: 600;
+            font-size: 16px;
+
+            >.logo {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 10px;
+
+                >.logoImg {
+                    width: 30px;
+                    height: 30px;
+                }
+            }
+
+            >.logoCollapsed {
+                display: none;
+            }
+        }
+
+
+        >.menuTitle {
+            padding: 1em;
+            font-size: 13px;
+            color: #666;
+        }
+
+        >.menu {
+            border-inline: none;
+        }
+    }
+
+
+
+}
+
+.user {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin: 1em;
+    gap: 1em;
+
+    .userImg {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+}
+
+// 折叠时候的样式
+.collapsed {
+    width: 80px;
+
+    >:global(.ant-layout-sider-children) {
+        >.head {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+
+            >.logo {
+                display: none;
+            }
+
+            >.logoCollapsed {
+                display: block;
+            }
+        }
+    }
+}
+
+.userr {
+    flex-direction: column;
+
+    .userEmail {
+        display: none;
+    }
+
+}

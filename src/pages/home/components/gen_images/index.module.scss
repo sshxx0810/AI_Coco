@@ -1,0 +1,169 @@
+ .wrap {
+     flex: 1;
+     width: 0;
+     height: 100%;
+     position: relative;
+     display: flex;
+     flex-direction: column;
+     padding: 24px;
+     color: #2f2f39;
+
+     >.nav {
+         overflow-x: auto;
+         margin: 0 -24px 24px -24px;
+
+         // 自定义横向滚动条样式
+         &::-webkit-scrollbar {
+             height: 6px; // 滚动条高度
+         }
+
+         &::-webkit-scrollbar-thumb {
+             background: #cabdff; // 滑块颜色
+             border-radius: 3px; // 滑块圆角
+         }
+
+         &::-webkit-scrollbar-track {
+             background: #f5f0ff; // 轨道背景
+             border-radius: 3px; // 轨道圆角
+         }
+
+
+
+         >div {
+             &::after {
+                 content: "";
+                 display: block;
+                 min-height: 1em;
+                 min-width: 24px;
+             }
+
+             &::before {
+                 content: "";
+                 display: block;
+                 min-height: 1em;
+                 min-width: 24px;
+             }
+
+
+             flex-wrap: wrap;
+             margin-bottom: 10px;
+             //  width: 100%;
+             display: flex;
+             align-items: center;
+             gap: 10px;
+
+             @media (max-width: 600px) {
+                 flex-wrap: nowrap;
+             }
+
+             >.tab {
+                 border-radius: 999px;
+                 padding: 6px 12px;
+                 background: #f5f0ff;
+                 color: #5943b3;
+                 white-space: nowrap;
+                 cursor: pointer;
+
+                 transition: background 0.3s ease-in-out, color 0.3s ease-in-out;
+             }
+
+             >.tabActive {
+                 background: #7c5cff;
+                 color: #fff;
+             }
+
+             //  &:hover {
+             //  }
+
+         }
+     }
+
+
+
+     >.grid {
+         flex: 1;
+         display: grid;
+         grid-template-columns: repeat(3, 1fr);
+         gap: 3px;
+         overflow: auto;
+         padding-bottom: 200px;
+
+         @media (max-width: 900px) {
+             grid-template-columns: repeat(2, 1fr);
+         }
+
+         @media (max-width: 600px) {
+             grid-template-columns: 1fr;
+         }
+
+         >.card {
+             height: 220px;
+             position: relative;
+             border-radius: 5px;
+             overflow: hidden;
+
+
+             >.cover {
+                 width: 100%;
+                 height: 100%;
+                 object-fit: cover;
+                 display: block;
+             }
+
+             >.badge {
+                 position: absolute;
+                 top: 8px;
+                 left: 8px;
+                 background: rgba(124, 92, 255, 0.12);
+                 color: #fff;
+                 border-radius: 8px;
+                 padding: 4px 8px;
+                 font-size: 12px;
+                 border: 1px solid #fff;
+                 background: rgba(0, 0, 0, 0.295);
+
+             }
+         }
+
+
+         &::-webkit-scrollbar {
+             display: none;
+         }
+
+         >.end {
+             height: 40px;
+             text-align: center;
+             color: #999;
+             grid-column: span 3;
+
+             @media (max-width: 900px) {
+                 grid-column: span 2;
+             }
+
+             @media (max-width: 600px) {
+                 grid-column: span 1;
+             }
+         }
+     }
+
+
+     >.promptInner {
+         width: 100%;
+         position: absolute;
+         flex-direction: row;
+         justify-content: center;
+         align-items: center;
+         bottom: 0;
+         left: 0;
+         $media_width: 768px;
+         transition: padding 0.3s ease-in-out;
+
+         @media screen and (max-width: $media_width) {
+             padding: 0em 0em;
+         }
+
+         @media screen and (min-width: $media_width) {
+             padding: 3em 5em;
+         }
+     }
+ }
