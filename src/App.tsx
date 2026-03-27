@@ -16,7 +16,7 @@ function App() {
           <Route path="imagepanel" element={<ImagePanel />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/app/chat" replace />} />
+        <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
     </BrowserRouter>
   )

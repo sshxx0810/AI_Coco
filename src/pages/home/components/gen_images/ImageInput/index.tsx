@@ -1,46 +1,45 @@
-import { ConfigProvider, Divider, Dropdown, Input, Upload, type UploadFile } from 'antd'
-import { SendOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { ConfigProvider, Dropdown, Upload, type UploadFile } from 'antd'
+import { SendOutlined } from '@ant-design/icons'
+import { useState } from 'react'
 import styles from './index.module.scss'
 import upload_image from '../../../assets/upload_image.svg'
 import imgsize from '../../../assets/size.svg'
 import picture_resolution from '../../../assets/picture_resolution.svg'
-import _16_9 from '../assets/16.9.svg'
 import _4_3 from '../assets/4.3.svg'
 import _1_1 from '../assets/1.1.svg'
 import _3_4 from '../assets/3.4.svg'
 import _9_16 from '../assets/9.16.svg'
 import _2_3 from '../assets/2.3.svg'
-import { useNavigate, useOutletContext } from 'react-router-dom';
-import { useSidebar } from '../../context';
+import { useNavigate } from 'react-router-dom'
+import { useSidebar } from '../../context'
+import { requireLogin } from '../../../../../middleware/requireLogin'
 
 export default function ImageInputBar() {
-
     const navigate = useNavigate()
-    const { setCollapsed } = useSidebar()
+    const { setCollapsed, isLoggedIn, openAuthModal } = useSidebar()
 
     const [imgList, setImgList] = useState<UploadFile[]>([])
     const [resolution, setResolution] = useState('720P')
     const [size, setSize] = useState('16 : 9')
 
     const handleImgClick = (file: UploadFile) => {
-        const viewer = document.createElement('img');
-        viewer.src = file.thumbUrl || URL.createObjectURL(file.originFileObj!);
-        viewer.style.position = 'fixed';
-        viewer.style.top = '0';
-        viewer.style.left = '0';
-        viewer.style.width = '100%';
-        viewer.style.height = '100%';
-        viewer.style.objectFit = 'contain';
-        viewer.style.backgroundColor = 'rgba(0,0,0,0.8)';
-        viewer.style.zIndex = '1';
-        viewer.style.cursor = 'zoom-out';
-        viewer.onclick = () => document.body.removeChild(viewer);
-        document.body.appendChild(viewer);
+        const viewer = document.createElement('img')
+        viewer.src = file.thumbUrl || URL.createObjectURL(file.originFileObj!)
+        viewer.style.position = 'fixed'
+        viewer.style.top = '0'
+        viewer.style.left = '0'
+        viewer.style.width = '100%'
+        viewer.style.height = '100%'
+        viewer.style.objectFit = 'contain'
+        viewer.style.backgroundColor = 'rgba(0,0,0,0.8)'
+        viewer.style.zIndex = '1'
+        viewer.style.cursor = 'zoom-out'
+        viewer.onclick = () => document.body.removeChild(viewer)
+        document.body.appendChild(viewer)
     }
 
     const handleRemove = (uid: string) => {
-        setImgList(imgList.filter(f => f.uid !== uid));
+        setImgList(imgList.filter((f) => f.uid !== uid))
     }
 
     const menuItems = [
@@ -51,11 +50,26 @@ export default function ImageInputBar() {
         { key: '9:16', label: '9 : 16', icon: <img className={styles.icon} width={24} height={24} src={_9_16} alt="" /> },
     ]
 
+    const handleSendClick = () => {
+        const canContinue = requireLogin({
+            isLoggedIn,
+            openAuthModal,
+            title: '请先登录',
+            content: '生成图片前需要先登录，是否现在去登录？',
+        })
+
+        if (!canContinue) {
+            return
+        }
+
+        setCollapsed(true)
+        navigate('/app/imagepanel')
+    }
+
     return (
         <>
             <div className={styles.bar}>
                 <div className={styles.content}>
-                    {/* 上传图片：PC端点击、移动端支持相机/相册 */}
                     <Upload
                         className={styles.uploadbtn}
                         beforeUpload={() => false}
@@ -68,12 +82,12 @@ export default function ImageInputBar() {
                             <img className={styles.icon} src={upload_image} alt="" />
                         </div>
                     </Upload>
+
                     {imgList.length > 0 && (
                         <div className={styles.previewRow}>
                             {imgList.map((file) => (
                                 <div key={file.uid} className={styles.previewImg}>
                                     <img
-                                        key={file.uid}
                                         src={file.thumbUrl || URL.createObjectURL(file.originFileObj!)}
                                         alt="preview"
                                         width={70}
@@ -84,25 +98,24 @@ export default function ImageInputBar() {
                                     <span
                                         className={styles.removeBtn}
                                         onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemove(file.uid);
+                                            e.stopPropagation()
+                                            handleRemove(file.uid)
                                         }}
                                     >
-                                        ×
+                                        {'×'}
                                     </span>
                                 </div>
                             ))}
                         </div>
                     )}
-                    <textarea className={styles.textArea} placeholder="描述你想要生成的图片..." />
+
+                    <textarea className={styles.textArea} placeholder={'描述你想要生成的图片...'} />
                 </div>
 
                 <div className={styles.buttons}>
                     <ConfigProvider
                         theme={{
                             token: {
-                                // colorText: '#1890ff',
-                                // 鼠标悬浮时整个item的颜色
                                 controlItemBgHover: 'rgba(173, 157, 247, 0.5)',
                             },
                         }}
@@ -116,9 +129,9 @@ export default function ImageInputBar() {
                                         { key: '2K', label: '2K' },
                                         { key: '4K', label: '4K' },
                                     ],
-                                    onClick: ({ key, domEvent }) => {
-                                        const label = (domEvent.target as HTMLElement).innerText;
-                                        setResolution(label);
+                                    onClick: ({ domEvent }) => {
+                                        const label = (domEvent.target as HTMLElement).innerText
+                                        setResolution(label)
                                     },
                                 }}
                                 trigger={['click']}
@@ -128,12 +141,13 @@ export default function ImageInputBar() {
                                     {resolution}
                                 </div>
                             </Dropdown>
+
                             <Dropdown
                                 menu={{
                                     items: menuItems,
-                                    onClick: ({ key, domEvent }) => {
-                                        const label = (domEvent.target as HTMLElement).innerText;
-                                        setSize(label);
+                                    onClick: ({ domEvent }) => {
+                                        const label = (domEvent.target as HTMLElement).innerText
+                                        setSize(label)
                                     },
                                 }}
                                 trigger={['click']}
@@ -145,10 +159,8 @@ export default function ImageInputBar() {
                             </Dropdown>
                         </div>
                     </ConfigProvider>
-                    <div className={styles.sendBtn} onClick={() => {
-                        setCollapsed(true)
-                        navigate('/app/imagepanel')
-                    }}>
+
+                    <div className={styles.sendBtn} onClick={handleSendClick}>
                         <SendOutlined />
                     </div>
                 </div>
@@ -156,4 +168,3 @@ export default function ImageInputBar() {
         </>
     )
 }
-

@@ -65,6 +65,16 @@
     }
 }
 
+.logoutButton {
+    margin: 0 12px 8px;
+}
+
+.logoutButtonCollapsed {
+    margin: 0 auto 8px;
+    min-width: 40px;
+    padding-inline: 0;
+}
+
 // 折叠时候的样式
 .collapsed {
     width: 80px;
