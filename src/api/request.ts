@@ -1,86 +1,145 @@
 import axios from 'axios'
-import type { AxiosInstance, AxiosResponse, AxiosError } from 'axios'
+import type { AxiosError, AxiosHeaders, AxiosInstance, AxiosResponse } from 'axios'
 
-// 环境变量 - baseURL
-const baseURL = import.meta.env.VITE_BASE_URL || 'http://127.0.0.1:3000'
+const TOKEN_KEY = 'auth_token'
+const DEFAULT_BASE_URL = 'http://127.0.0.1:3000'
 
-// 创建 axios 实例
+type ApiError = Error & {
+  status?: number
+  payload?: unknown
+  code?: string
+}
+
+type BackendSuccess<T = unknown> = {
+  success: true
+  data: T
+}
+
+type BackendFail = {
+  success: false
+  message?: string
+}
+
+type BackendEnvelope<T = unknown> = BackendSuccess<T> | BackendFail
+
+const baseURL = (import.meta.env.VITE_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '')
+
+function isBackendEnvelope(payload: unknown): payload is BackendEnvelope {
+  return typeof payload === 'object' && payload !== null && 'success' in payload
+}
+
+function pickMessage(payload: unknown): string {
+  if (typeof payload === 'string') {
+    return payload
+  }
+
+  if (isBackendEnvelope(payload) && payload.success === false) {
+    return payload.message || ''
+  }
+
+  if (typeof payload === 'object' && payload !== null) {
+    const maybe = payload as { message?: string; error?: string }
+    return maybe.message || maybe.error || ''
+  }
+
+  return ''
+}
+
+function buildApiError(options: {
+  message: string
+  status?: number
+  payload?: unknown
+  code?: string
+}): ApiError {
+  const apiError = new Error(options.message) as ApiError
+  apiError.status = options.status
+  apiError.payload = options.payload
+  apiError.code = options.code
+  return apiError
+}
+
 const request: AxiosInstance = axios.create({
   baseURL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  timeout: 15000,
 })
 
-// token key
-const TOKEN_KEY = 'auth_token'
-
-// ============ 请求拦截器 ============
 request.interceptors.request.use(
   (config) => {
-    // 从 localStorage 获取 token
-    const token = localStorage.getItem(TOKEN_KEY)
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
+    const headers = axios.AxiosHeaders.from(config.headers ?? {})
+
+    if (config.data instanceof FormData) {
+      // Let browser attach multipart boundary automatically.
+      headers.delete('Content-Type')
+    } else if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json')
     }
+
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
+
+    config.headers = headers as AxiosHeaders
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-// ============ 响应拦截器 ============
 request.interceptors.response.use(
   (response: AxiosResponse) => {
-    console.log('登录响应结果:', response.data.success)
-    // 2xx 状态码这里处理，直接返回 data
-    return response.data
-  },
-  (error: AxiosError) => {
-    // 处理错误响应
-    let errorMessage = '网络错误，请稍后重试'
+    const payload = response.data as any
 
-    if (error.response) {
-      // 服务器返回了错误状态码
-      const status = error.response.status
-      const data = error.response.data as { message?: string; error?: string }
-
-      switch (status) {
-        case 400:
-          errorMessage = data?.message || '请求参数错误'
-          break
-        case 401:
-          errorMessage = data?.message || '用户名或密码错误'
-          // 清除 token
-          localStorage.removeItem(TOKEN_KEY)
-          break
-        case 403:
-          errorMessage = '没有权限访问该资源'
-          break
-        case 404:
-          errorMessage = '请求的资源不存在'
-          break
-        case 500:
-          errorMessage = '服务器内部错误'
-          break
-        default:
-          errorMessage = data?.message || data?.error || errorMessage
-      }
-    } else if (error.request) {
-      // 请求已发出但没有收到响应
-      errorMessage = '网络连接失败，请检查网络'
+    if (isBackendEnvelope(payload) && payload.success === false) {
+      return Promise.reject(
+        buildApiError({
+          message: payload.message || 'Request failed, please retry later.',
+          status: response.status,
+          payload,
+        })
+      )
     }
 
-    // 返回带错误信息的 Promise
-    return Promise.reject(new Error(errorMessage))
+    return payload
+  },
+  (error: AxiosError) => {
+    const status = error.response?.status
+    const payload = error.response?.data
+    const backendMessage = pickMessage(payload)
+
+    let errorMessage = backendMessage || error.message || 'Request failed, please retry later.'
+
+    if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
+      errorMessage = 'Request timeout, backend may still be processing.'
+    } else if (!error.response && error.request) {
+      errorMessage = 'Network error. Please check frontend-backend connectivity.'
+    }
+
+    if (status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+    }
+
+    console.error('[API Error]', {
+      method: error.config?.method,
+      url: error.config?.url,
+      code: error.code,
+      status,
+      payload,
+      message: errorMessage,
+    })
+
+    return Promise.reject(
+      buildApiError({
+        message: errorMessage,
+        status,
+        payload,
+        code: error.code,
+      })
+    )
   }
 )
 
 export default request
 
-// 导出 token 操作方法
 export const tokenOps = {
   setToken: (token: string) => localStorage.setItem(TOKEN_KEY, token),
   getToken: () => localStorage.getItem(TOKEN_KEY),

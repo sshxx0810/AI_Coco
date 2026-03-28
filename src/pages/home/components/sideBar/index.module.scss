@@ -105,3 +105,47 @@
     }
 
 }
+
+.historyList {
+    margin: 0 10px;
+    max-height: 240px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.historyList::-webkit-scrollbar {
+    display: none;
+}
+
+.historyEmpty {
+    color: #999;
+    font-size: 12px;
+    padding: 4px 8px;
+}
+
+.historyItem {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #333;
+    cursor: pointer;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+.historyItem:hover {
+    background: rgba(173, 157, 247, 0.2);
+}
+
+.historyItemActive {
+    background: rgba(173, 157, 247, 0.35);
+}

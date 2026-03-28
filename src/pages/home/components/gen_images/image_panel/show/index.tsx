@@ -1,166 +1,130 @@
-import { AliwangwangOutlined, CaretDownOutlined, CloseOutlined, CopyOutlined, DownloadOutlined, MoreOutlined, ShareAltOutlined, PictureOutlined, PlusCircleOutlined } from '@ant-design/icons'
-import { Upload, Button, message } from 'antd'
-import type { UploadProps } from 'antd';
-import { useState, useEffect } from 'react'
+import {
+  CloseOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  ScanOutlined,
+  TrademarkOutlined,
+  VideoCameraOutlined,
+} from '@ant-design/icons'
+import { Empty, message } from 'antd'
+import { useEffect, useMemo, useState } from 'react'
 import styles from './index.module.scss'
+import { useImageSession } from '../../context'
 
-const { Dragger } = Upload;
+type ImageShowProps = {
+  selectedImage: string | null
+  onImageSelect: (image: string | null) => void
+}
 
-export default function ImageShow() {
+export default function ImageShow({ selectedImage, onImageSelect }: ImageShowProps) {
+  const { messages } = useImageSession()
+  const [closed, setClosed] = useState(false)
 
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const assistantImages = useMemo(
+    () => messages.filter((item) => item.role === 'assistant').flatMap((item) => item.images),
+    [messages]
+  )
 
-    const uploadProps: UploadProps = {
-        name: 'file',
-        multiple: false,
-        showUploadList: false,
-        accept: '.png,.jpg,.jpeg',
-        beforeUpload(file) {
-            const isLt10M = file.size / 1024 / 1024 < 10;
-            if (!isLt10M) {
-                message.error('Image must be smaller than 10MB!');
-                return Upload.LIST_IGNORE;
-            }
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => {
-                setImageUrl(reader.result as string);
-            };
-            return false;
-        },
-        onDrop(e) {
-            console.log('Dropped files', e.dataTransfer.files);
-        },
-    };
+  const latestImage = assistantImages[assistantImages.length - 1] || null
+  const displayImage = selectedImage || latestImage
+  const hasImage = Boolean(displayImage) && !closed
 
-    useEffect(() => {
-        const handlePaste = (event: ClipboardEvent) => {
-            const items = event.clipboardData?.items;
-            if (items) {
-                for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.indexOf('image') !== -1) {
-                        const blob = items[i].getAsFile();
-                        if (blob) {
-                            if (blob.size / 1024 / 1024 > 10) {
-                                message.error('Image must be smaller than 10MB!');
-                                return;
-                            }
-                            const reader = new FileReader();
-                            reader.readAsDataURL(blob);
-                            reader.onload = () => {
-                                setImageUrl(reader.result as string);
-                            };
-                        }
-                    }
-                }
-            }
-        };
+  useEffect(() => {
+    if (displayImage) {
+      setClosed(false)
+    }
+  }, [displayImage])
 
-        window.addEventListener('paste', handlePaste);
-        return () => {
-            window.removeEventListener('paste', handlePaste);
-        };
-    }, []);
+  const ensureImageReady = () => {
+    if (!displayImage || closed) {
+      message.warning('暂无可操作的图片')
+      return false
+    }
+    return true
+  }
 
-    const list = [
-        {
-            title: '真实风',
-            icon: <AliwangwangOutlined />,
-        },
-        {
-            title: '动漫风',
-            icon: <AliwangwangOutlined />,
-        },
-        {
-            title: '油画风',
-            icon: <AliwangwangOutlined />,
-        },
-        {
-            title: '素描风',
-            icon: <AliwangwangOutlined />,
-        },
-        {
-            title: '水彩风',
-            icon: <AliwangwangOutlined />,
-        },
-    ]
+  const handlePendingAction = (label: string) => {
+    if (!ensureImageReady()) {
+      return
+    }
+    message.info(`${label} 功能开发中`)
+  }
 
-    const btnlist = [
-        {
-            title: '下载',
-            icon: <DownloadOutlined />,
-        },
-        {
-            title: '复制',
-            icon: <CopyOutlined />,
-        },
-        {
-            title: '分享',
-            icon: <ShareAltOutlined />,
-        },
-        {
-            title: null,
-            icon: <CloseOutlined />,
-        }
-    ]
+  const handleDownload = () => {
+    if (!ensureImageReady() || !displayImage) {
+      return
+    }
 
-    return (
-        <div className={styles.body}>
-            <div className={styles.head}>
-                <div className={styles.left}>
-                    {
-                        list.map(item => (
-                            <div className={styles.item}>
-                                <div className={styles.icon}>{item.icon}</div>
-                                <div className={styles.title}>{item.title}</div>
-                            </div>
-                        ))
-                    }
-                    <div className={styles.item_end}>
-                        <div className={styles.icon}>更多</div>
-                        <div className={styles.title}><CaretDownOutlined /></div>
-                    </div>
-                </div>
-                <div className={styles.right}>
-                    {
-                        btnlist.map(item => (
-                            <div className={styles.item}>
-                                <div className={styles.icon}>{item.icon}</div>
-                                {item.title && <div className={styles.title}>{item.title}</div>}
-                            </div>
-                        ))
-                    }
-                </div>
-            </div>
-            <div className={styles.content}>
-                {imageUrl ? (
-                    <div className={styles.image_preview}>
-                        <img src={imageUrl} alt="uploaded" />
-                        <div className={styles.remove_btn} onClick={() => setImageUrl(null)}>
-                            <CloseOutlined />
-                        </div>
-                    </div>
-                ) : (
-                    <Upload {...uploadProps}>
-                        <div className={styles.upload_area}>
-                            <div className={styles.icon}>
-                                <PictureOutlined style={{ fontSize: '64px', color: '#e0e0e0' }} />
-                            </div>
-                            <div className={styles.text}>
-                                <div>
-                                    <span style={{ color: '#4d7cfe', cursor: 'pointer' }}>支持拖拽</span>、<span style={{ color: '#4d7cfe', cursor: 'pointer' }}>Ctrl+V</span> 粘贴图片至此
-                                </div>
-                            </div>
-                            <div className={styles.hint}>
-                                图片最大10M PNG、JPG格式
-                            </div>
-                            <Button type="primary" shape="round" icon={<PlusCircleOutlined />} size="large" style={{ backgroundColor: '#f0f2f5', color: '#333', border: 'none' }}>
-                                上传图片
-                            </Button>
-                        </div>
-                    </Upload>
-                )}
-            </div>
+    const link = document.createElement('a')
+    link.href = displayImage
+    link.download = `generated-${Date.now()}.png`
+    link.target = '_blank'
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleClose = () => {
+    setClosed(true)
+    onImageSelect(null)
+  }
+
+  return (
+    <div className={styles.body}>
+      <div className={styles.head}>
+        <div className={styles.left}>
+          <div className={styles.item} onClick={() => handlePendingAction('变清晰')}>
+            <span className={styles.icon}>
+              <ScanOutlined />
+            </span>
+            <span className={styles.title}>变清晰</span>
+          </div>
+          <div className={styles.item} onClick={() => handlePendingAction('去水印')}>
+            <span className={styles.icon}>
+              <TrademarkOutlined />
+            </span>
+            <span className={styles.title}>去水印</span>
+          </div>
+          <div className={styles.item} onClick={() => handlePendingAction('消除')}>
+            <span className={styles.icon}>
+              <DeleteOutlined />
+            </span>
+            <span className={styles.title}>消除</span>
+          </div>
         </div>
-    )
+
+        <div className={styles.right}>
+          <div className={styles.item} onClick={handleDownload}>
+            <span className={styles.icon}>
+              <DownloadOutlined />
+            </span>
+            <span className={styles.title}>下载</span>
+          </div>
+          <div className={styles.item} onClick={() => handlePendingAction('变视频')}>
+            <span className={styles.icon}>
+              <VideoCameraOutlined />
+            </span>
+            <span className={styles.title}>变视频</span>
+          </div>
+          <div className={styles.item} onClick={handleClose}>
+            <span className={styles.icon}>
+              <CloseOutlined />
+            </span>
+            <span className={styles.title}>关闭</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.content}>
+        {hasImage && displayImage ? (
+          <div className={styles.image_preview}>
+            <img src={displayImage} alt="generated" />
+          </div>
+        ) : (
+          <Empty description="暂无生成结果，先在左侧发送一条消息" />
+        )}
+      </div>
+    </div>
+  )
 }

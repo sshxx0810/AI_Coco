@@ -1,9 +1,7 @@
-import { Button, ConfigProvider, Input, Upload, type UploadFile } from 'antd'
-import { UploadOutlined, SendOutlined, CloseOutlined, PictureOutlined, FileOutlined } from '@ant-design/icons'
+import { Button, Upload, type UploadFile } from 'antd'
+import { SendOutlined, PictureOutlined, FileOutlined } from '@ant-design/icons'
 import styles from './index.module.scss'
-import { useState } from 'react';
-
-const { TextArea } = Input;
+import { useState } from 'react'
 
 export default function ChatInputBar() {
 

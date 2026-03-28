@@ -1,30 +1,33 @@
-import { Button, ConfigProvider, Layout, Menu, Tooltip } from 'antd'
+﻿import { Button, ConfigProvider, Layout, Menu, Tooltip } from 'antd'
 import {
-  RobotOutlined,
-  FolderOpenOutlined,
-  SettingOutlined,
-  PictureOutlined,
-  DoubleRightOutlined,
   DoubleLeftOutlined,
+  DoubleRightOutlined,
+  FolderOpenOutlined,
   LogoutOutlined,
+  PictureOutlined,
+  RobotOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
-import styles from './index.module.scss'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useMemo } from 'react'
+import styles from './index.module.scss'
 import logo from '../../assets/logo.jpeg'
 import test_avatar from '../../assets/test_avatar.png'
 import { useSidebar } from '../context'
 import { logout } from '../../../../api/userApi'
+import { useImageSession } from '../gen_images/context'
 
 const { Sider } = Layout
 
-const AVATAR_BASE_URL = 'http://localhost:3000'
+const AVATAR_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://127.0.0.1:3000'
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const { collapsed, setCollapsed, isLoggedIn, setIsLoggedIn, setUser } = useSidebar()
   const { pathname } = useLocation()
   const isMobile = window.innerWidth < 768
+
+  const { collapsed, setCollapsed, isLoggedIn, setIsLoggedIn, setUser } = useSidebar()
+  const { sessionId, historySessions, closeCurrentSession, openSessionFromHistory } = useImageSession()
 
   const handleLogout = () => {
     logout()
@@ -73,9 +76,11 @@ export default function Sidebar() {
   ]
 
   const selectedKeys = useMemo(() => {
-    const item = items.find((item) => pathname === item.navigate)
+    const item = items.find((entry) => pathname === entry.navigate)
     return item ? [item.key] : []
   }, [pathname])
+
+  const historyItems = useMemo(() => historySessions.slice(0, 10), [historySessions])
 
   return (
     <ConfigProvider
@@ -109,7 +114,9 @@ export default function Sidebar() {
           </div>
         </div>
 
-        <div className={styles.menuTitle} style={{ display: collapsed ? 'none' : 'block' }}>通用功能</div>
+        <div className={styles.menuTitle} style={{ display: collapsed ? 'none' : 'block' }}>
+          通用功能
+        </div>
 
         <Menu
           className={styles.menu}
@@ -118,18 +125,48 @@ export default function Sidebar() {
           items={items}
           inlineCollapsed={collapsed}
           onClick={({ key }) => {
-            const item = items.find((item) => item.key === key)
+            const item = items.find((entry) => entry.key === key)
             if (item?.key === 'button') {
               setCollapsed(!collapsed)
               return
             }
-            if (item && item.navigate) {
+
+            if (item?.key === 'messages') {
+              closeCurrentSession()
+            }
+
+            if (item?.navigate) {
               navigate(item.navigate)
             }
           }}
         />
 
-        <div className={styles.menuTitle} style={{ display: collapsed ? 'none' : 'block' }}>历史记录</div>
+        <div className={styles.menuTitle} style={{ display: collapsed ? 'none' : 'block' }}>
+          历史记录
+        </div>
+
+        {!collapsed && (
+          <div className={styles.historyList}>
+            {historyItems.length === 0 && <div className={styles.historyEmpty}>暂无会话记录</div>}
+
+            {historyItems.map((item) => (
+              <button
+                type="button"
+                key={item.sessionId}
+                title={item.title}
+                className={`${styles.historyItem} ${
+                  sessionId === item.sessionId ? styles.historyItemActive : ''
+                }`}
+                onClick={() => {
+                  openSessionFromHistory(item.sessionId)
+                  navigate('/app/imagepanel')
+                }}
+              >
+                {item.title}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div style={{ flex: 1 }} />
 

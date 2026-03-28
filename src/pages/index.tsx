@@ -6,6 +6,7 @@ import styles from './index.module.scss'
 import { Outlet } from 'react-router-dom'
 import { SidebarProvider, useSidebar } from './home/components/context'
 import { createUser, login } from '../api/userApi'
+import { ImageSessionProvider } from './home/components/gen_images/context'
 
 type AuthFormValues = {
   username: string
@@ -20,7 +21,9 @@ const defaultType = 'user'
 export default function MainPage() {
   return (
     <SidebarProvider>
-      <MainPageContent />
+      <ImageSessionProvider>
+        <MainPageContent />
+      </ImageSessionProvider>
     </SidebarProvider>
   )
 }
