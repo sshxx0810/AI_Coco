@@ -15,9 +15,16 @@ export default function ImagePanel() {
     return assistantImages[assistantImages.length - 1] || null
   }, [messages])
 
+  const latestUserImage = useMemo(() => {
+    const userImages = messages
+      .filter((item) => item.role === 'user')
+      .flatMap((item) => item.images)
+    return userImages[userImages.length - 1] || null
+  }, [messages])
+
   useEffect(() => {
-    setSelectedImage(latestAssistantImage)
-  }, [latestAssistantImage])
+    setSelectedImage(latestAssistantImage || latestUserImage || null)
+  }, [latestAssistantImage, latestUserImage])
 
   const handleImageSelect = (image: string | null) => {
     setSelectedImage(image)

@@ -98,27 +98,6 @@ const readStoredMessages = (userKey: string): ImageChatMessage[] => {
   }
 }
 
-const readStoredHistory = (userKey: string): ImageSessionHistoryItem[] => {
-  try {
-    const raw = sessionStorage.getItem(getStorageKey(userKey, 'history'))
-    if (!raw) {
-      return []
-    }
-
-    const parsed = JSON.parse(raw) as ImageSessionHistoryItem[]
-    if (!Array.isArray(parsed)) {
-      return []
-    }
-
-    return parsed.map((item) => ({
-      ...item,
-      title: buildSessionTitle(item.messages || [], item.title || '新会话'),
-    }))
-  } catch {
-    return []
-  }
-}
-
 const readStoredSessionId = (userKey: string): string | null => {
   return sessionStorage.getItem(getStorageKey(userKey, 'id'))
 }
@@ -160,36 +139,6 @@ const mapBackendHistory = (items: BackendSessionHistoryItem[]): ImageSessionHist
   })
 }
 
-const mergeHistorySessions = (
-  localItems: ImageSessionHistoryItem[],
-  remoteItems: ImageSessionHistoryItem[]
-) => {
-  const merged = new Map<string, ImageSessionHistoryItem>()
-
-  for (const item of localItems) {
-    merged.set(item.sessionId, item)
-  }
-
-  for (const item of remoteItems) {
-    const existed = merged.get(item.sessionId)
-    if (!existed) {
-      merged.set(item.sessionId, item)
-      continue
-    }
-
-    const shouldUseLocal = existed.updatedAt >= item.updatedAt
-    merged.set(item.sessionId, shouldUseLocal ? existed : item)
-  }
-
-  return Array.from(merged.values())
-    .map((item) => ({
-      ...item,
-      title: buildSessionTitle(item.messages || [], item.title || '新会话'),
-    }))
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 10)
-}
-
 export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoggedIn } = useSidebar()
   const userKey = useMemo(() => getCurrentUserKey(), [user.username])
@@ -197,9 +146,7 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const [sessionId, setSessionId] = useState<string | null>(() => readStoredSessionId(getCurrentUserKey()))
   const [messages, setMessages] = useState<ImageChatMessage[]>(() => readStoredMessages(getCurrentUserKey()))
-  const [historySessions, setHistorySessions] = useState<ImageSessionHistoryItem[]>(() =>
-    readStoredHistory(getCurrentUserKey())
-  )
+  const [historySessions, setHistorySessions] = useState<ImageSessionHistoryItem[]>([])
   const [sending, setSending] = useState(false)
 
   const persistMessages = (next: ImageChatMessage[]) => {
@@ -207,48 +154,16 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     sessionStorage.setItem(getStorageKey(userKeyRef.current, 'messages'), JSON.stringify(next))
   }
 
-  const persistHistory = (next: ImageSessionHistoryItem[]) => {
-    setHistorySessions(next)
-    sessionStorage.setItem(getStorageKey(userKeyRef.current, 'history'), JSON.stringify(next))
-  }
-
-  const upsertHistorySession = (
-    targetSessionId: string,
-    nextMessages: ImageChatMessage[],
-    fallbackTitle?: string
-  ) => {
-    setHistorySessions((prev) => {
-      const currentTime = Date.now()
-      const existed = prev.find((item) => item.sessionId === targetSessionId)
-      const title = buildSessionTitle(nextMessages, existed?.title || fallbackTitle || '新会话')
-
-      const entry: ImageSessionHistoryItem = {
-        sessionId: targetSessionId,
-        title,
-        messages: nextMessages,
-        createdAt: existed?.createdAt || currentTime,
-        updatedAt: currentTime,
-      }
-
-      const next = [entry, ...prev.filter((item) => item.sessionId !== targetSessionId)]
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, 10)
-
-      sessionStorage.setItem(getStorageKey(userKeyRef.current, 'history'), JSON.stringify(next))
-      return next
-    })
-  }
-
   useEffect(() => {
     userKeyRef.current = userKey
 
     const localSessionId = readStoredSessionId(userKey)
     const localMessages = readStoredMessages(userKey)
-    const localHistory = readStoredHistory(userKey)
 
     setSessionId(localSessionId)
     setMessages(localMessages)
-    setHistorySessions(localHistory)
+    setHistorySessions([])
+    sessionStorage.removeItem(getStorageKey(userKeyRef.current, 'history'))
 
     if (!isLoggedIn) {
       return
@@ -264,13 +179,11 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
 
         const mapped = mapBackendHistory(remote)
-        setHistorySessions((prev) => {
-          const next = mergeHistorySessions(prev, mapped)
-          sessionStorage.setItem(getStorageKey(userKeyRef.current, 'history'), JSON.stringify(next))
-          return next
-        })
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .slice(0, 10)
+        setHistorySessions(mapped)
       } catch {
-        // Keep local history as fallback when remote query fails.
+        setHistorySessions([])
       }
     }
 
@@ -293,11 +206,6 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }
 
   const sendMessage: ImageSessionContextType['sendMessage'] = async (params) => {
-    const currentSessionId = await ensureSessionId({
-      prompt: params.prompt,
-      files: params.files,
-    })
-
     const userImages = params.files.map((file) => URL.createObjectURL(file))
     const userMessage: ImageChatMessage = {
       id: makeId(),
@@ -310,10 +218,18 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const nextMessages = [...messages, userMessage]
     persistMessages(nextMessages)
-    upsertHistorySession(currentSessionId, nextMessages, params.prompt)
     setSending(true)
 
+    let currentSessionId = sessionId
+
     try {
+      if (!currentSessionId) {
+        currentSessionId = await ensureSessionId({
+          prompt: params.prompt,
+          files: params.files,
+        })
+      }
+
       const reply = await sendImageSessionMessage({
         sessionId: currentSessionId,
         prompt: params.prompt,
@@ -331,7 +247,15 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       const finalMessages = [...nextMessages, assistantMessage]
       persistMessages(finalMessages)
-      upsertHistorySession(currentSessionId, finalMessages, params.prompt)
+      try {
+        const remote = await fetchLatestSessionHistory(10)
+        const mapped = mapBackendHistory(remote)
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .slice(0, 10)
+        setHistorySessions(mapped)
+      } catch {
+        setHistorySessions([])
+      }
     } catch (error) {
       const errText = error instanceof Error ? error.message : '发送失败'
       const failedMessage: ImageChatMessage = {
@@ -345,7 +269,6 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       const finalMessages = [...nextMessages, failedMessage]
       persistMessages(finalMessages)
-      upsertHistorySession(currentSessionId, finalMessages, params.prompt)
       throw error
     } finally {
       setSending(false)
@@ -353,10 +276,6 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }
 
   const closeCurrentSession = () => {
-    if (sessionId && messages.length > 0) {
-      upsertHistorySession(sessionId, messages)
-    }
-
     setSessionId(null)
     setMessages([])
     sessionStorage.removeItem(getStorageKey(userKeyRef.current, 'id'))
@@ -373,14 +292,6 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setMessages(target.messages)
     sessionStorage.setItem(getStorageKey(userKeyRef.current, 'id'), target.sessionId)
     sessionStorage.setItem(getStorageKey(userKeyRef.current, 'messages'), JSON.stringify(target.messages))
-
-    const next = historySessions
-      .map((item) =>
-        item.sessionId === targetSessionId ? { ...item, updatedAt: Date.now() } : item
-      )
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-
-    persistHistory(next)
   }
 
   const clearSession = () => {

@@ -1,4 +1,4 @@
-import {
+﻿import {
   CloseOutlined,
   DeleteOutlined,
   DownloadOutlined,
@@ -25,9 +25,16 @@ export default function ImageShow({ selectedImage, onImageSelect }: ImageShowPro
     [messages]
   )
 
-  const latestImage = assistantImages[assistantImages.length - 1] || null
-  const displayImage = selectedImage || latestImage
+  const userImages = useMemo(
+    () => messages.filter((item) => item.role === 'user').flatMap((item) => item.images),
+    [messages]
+  )
+
+  const latestAssistantImage = assistantImages[assistantImages.length - 1] || null
+  const latestUserImage = userImages[userImages.length - 1] || null
+  const displayImage = selectedImage || latestAssistantImage || latestUserImage
   const hasImage = Boolean(displayImage) && !closed
+  const hasSentMessage = messages.length > 0
 
   useEffect(() => {
     if (displayImage) {
@@ -122,7 +129,7 @@ export default function ImageShow({ selectedImage, onImageSelect }: ImageShowPro
             <img src={displayImage} alt="generated" />
           </div>
         ) : (
-          <Empty description="暂无生成结果，先在左侧发送一条消息" />
+          <Empty description={hasSentMessage ? '等待生成结果...' : '暂无生成结果，先在左侧发送一条消息'} />
         )}
       </div>
     </div>
