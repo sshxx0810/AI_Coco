@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   fetchLatestSessionHistory,
   initImageSession,
@@ -38,7 +38,6 @@ type ImageSessionContextType = {
   clearSession: () => void
 }
 
-const STORAGE_PREFIX = 'image_session'
 const BASE_URL = (import.meta.env.VITE_BASE_URL || 'http://127.0.0.1:3000').replace(/\/+$/, '')
 
 const ImageSessionContext = createContext<ImageSessionContextType>({
@@ -53,15 +52,6 @@ const ImageSessionContext = createContext<ImageSessionContextType>({
 })
 
 const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-
-const getCurrentUserKey = () => {
-  const username = localStorage.getItem('auth_username')?.trim()
-  return username ? `user:${username}` : 'guest'
-}
-
-const getStorageKey = (userKey: string, type: 'id' | 'messages' | 'history') => {
-  return `${STORAGE_PREFIX}:${userKey}:${type}`
-}
 
 const normalizeImageUrl = (url: string) => {
   if (!url) {
@@ -84,28 +74,8 @@ const toTimestamp = (value?: string | null, fallback = Date.now()) => {
   return Number.isNaN(ts) ? fallback : ts
 }
 
-const readStoredMessages = (userKey: string): ImageChatMessage[] => {
-  try {
-    const raw = sessionStorage.getItem(getStorageKey(userKey, 'messages'))
-    if (!raw) {
-      return []
-    }
-
-    const parsed = JSON.parse(raw) as ImageChatMessage[]
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-const readStoredSessionId = (userKey: string): string | null => {
-  return sessionStorage.getItem(getStorageKey(userKey, 'id'))
-}
-
 const buildSessionTitle = (messages: ImageChatMessage[], fallback = '新会话') => {
-  const firstUserText = messages
-    .find((item) => item.role === 'user' && item.text?.trim())
-    ?.text?.trim()
+  const firstUserText = messages.find((item) => item.role === 'user' && item.text?.trim())?.text?.trim()
 
   if (firstUserText) {
     return firstUserText
@@ -124,7 +94,10 @@ const mapBackendHistory = (items: BackendSessionHistoryItem[]): ImageSessionHist
       id: `${session.sessionId}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
       role: msg.sender,
       text: msg.content || '',
-      images: msg.file ? [normalizeImageUrl(msg.file)] : [],
+      images: [
+        ...(Array.isArray(msg.files) ? msg.files.map((item) => normalizeImageUrl(item)) : []),
+        ...(msg.file ? [normalizeImageUrl(msg.file)] : []),
+      ].filter(Boolean),
       createdAt: toTimestamp(msg.timestamp, createdAt),
       status: 'ok',
     }))
@@ -141,29 +114,16 @@ const mapBackendHistory = (items: BackendSessionHistoryItem[]): ImageSessionHist
 
 export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoggedIn } = useSidebar()
-  const userKey = useMemo(() => getCurrentUserKey(), [user.username])
-  const userKeyRef = useRef(userKey)
 
-  const [sessionId, setSessionId] = useState<string | null>(() => readStoredSessionId(getCurrentUserKey()))
-  const [messages, setMessages] = useState<ImageChatMessage[]>(() => readStoredMessages(getCurrentUserKey()))
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<ImageChatMessage[]>([])
   const [historySessions, setHistorySessions] = useState<ImageSessionHistoryItem[]>([])
   const [sending, setSending] = useState(false)
 
-  const persistMessages = (next: ImageChatMessage[]) => {
-    setMessages(next)
-    sessionStorage.setItem(getStorageKey(userKeyRef.current, 'messages'), JSON.stringify(next))
-  }
-
   useEffect(() => {
-    userKeyRef.current = userKey
-
-    const localSessionId = readStoredSessionId(userKey)
-    const localMessages = readStoredMessages(userKey)
-
-    setSessionId(localSessionId)
-    setMessages(localMessages)
+    setSessionId(null)
+    setMessages([])
     setHistorySessions([])
-    sessionStorage.removeItem(getStorageKey(userKeyRef.current, 'history'))
 
     if (!isLoggedIn) {
       return
@@ -192,7 +152,7 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => {
       cancelled = true
     }
-  }, [userKey, isLoggedIn])
+  }, [user.username, isLoggedIn])
 
   const ensureSessionId = async (params: { prompt: string; files: File[] }) => {
     if (sessionId) {
@@ -201,7 +161,6 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const id = await initImageSession(params)
     setSessionId(id)
-    sessionStorage.setItem(getStorageKey(userKeyRef.current, 'id'), id)
     return id
   }
 
@@ -217,7 +176,7 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     const nextMessages = [...messages, userMessage]
-    persistMessages(nextMessages)
+    setMessages(nextMessages)
     setSending(true)
 
     let currentSessionId = sessionId
@@ -246,7 +205,8 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       const finalMessages = [...nextMessages, assistantMessage]
-      persistMessages(finalMessages)
+      setMessages(finalMessages)
+
       try {
         const remote = await fetchLatestSessionHistory(10)
         const mapped = mapBackendHistory(remote)
@@ -268,7 +228,7 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       const finalMessages = [...nextMessages, failedMessage]
-      persistMessages(finalMessages)
+      setMessages(finalMessages)
       throw error
     } finally {
       setSending(false)
@@ -278,8 +238,6 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const closeCurrentSession = () => {
     setSessionId(null)
     setMessages([])
-    sessionStorage.removeItem(getStorageKey(userKeyRef.current, 'id'))
-    sessionStorage.removeItem(getStorageKey(userKeyRef.current, 'messages'))
   }
 
   const openSessionFromHistory = (targetSessionId: string) => {
@@ -290,8 +248,6 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     setSessionId(target.sessionId)
     setMessages(target.messages)
-    sessionStorage.setItem(getStorageKey(userKeyRef.current, 'id'), target.sessionId)
-    sessionStorage.setItem(getStorageKey(userKeyRef.current, 'messages'), JSON.stringify(target.messages))
   }
 
   const clearSession = () => {
@@ -316,3 +272,4 @@ export const ImageSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 }
 
 export const useImageSession = () => useContext(ImageSessionContext)
+

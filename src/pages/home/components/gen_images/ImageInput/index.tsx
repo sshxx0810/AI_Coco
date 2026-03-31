@@ -19,7 +19,7 @@ export default function ImageInputBar() {
   const navigate = useNavigate()
   const location = useLocation()
   const { setCollapsed, isLoggedIn, openAuthModal } = useSidebar()
-  const { sendMessage, sending } = useImageSession()
+  const { sendMessage, sending, messages } = useImageSession()
 
   const [imgList, setImgList] = useState<UploadFile[]>([])
   const [resolution, setResolution] = useState('720P')
@@ -76,8 +76,12 @@ export default function ImageInputBar() {
       return
     }
 
-    if (files.length === 0) {
-      message.warning('请上传 image 后再发送')
+    const hasPreviousGeneratedImage = messages.some(
+      (item) => item.role === 'assistant' && item.images.length > 0
+    )
+
+    if (files.length === 0 && !hasPreviousGeneratedImage) {
+      message.warning('请先上传一张图片作为初始基图')
       return
     }
 
@@ -86,13 +90,13 @@ export default function ImageInputBar() {
       navigate('/app/imagepanel')
     }
 
+    setPrompt('')
+
     try {
       await sendMessage({
         prompt: text,
         files,
       })
-
-      setPrompt('')
       setImgList([])
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : '发送失败'

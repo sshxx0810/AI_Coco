@@ -1,6 +1,8 @@
-import request from './request'
+﻿import request from './request'
 
-const SESSION_REQUEST_TIMEOUT = 120000
+// First-run model warm-up + image generation may exceed 2 minutes.
+// Keep a longer client timeout to avoid premature aborts.
+const SESSION_REQUEST_TIMEOUT = 300000
 
 type SessionInitBody = {
   data: {
@@ -21,18 +23,30 @@ type SessionInitResponse = SessionInitBody & {
 type SendMessageBody = {
   id?: number | string
   url?: string
+  assistant_reply?: string
+  assistantReply?: string
   message?: string
   reply?: string
   text?: string
+  llm_reply?: string
+  llmReply?: string
+  optimized_prompt?: string
+  optimizedPrompt?: string
   image?: string
   images?: string[]
   image_urls?: string[]
   data?: {
     id?: number | string
     url?: string
+    assistant_reply?: string
+    assistantReply?: string
     message?: string
     reply?: string
     text?: string
+    llm_reply?: string
+    llmReply?: string
+    optimized_prompt?: string
+    optimizedPrompt?: string
     image?: string
     images?: string[]
     image_urls?: string[]
@@ -57,6 +71,7 @@ export type BackendSessionMessage = {
   sender: 'user' | 'assistant'
   content: string
   file?: string
+  files?: string[]
   timestamp?: string
 }
 
@@ -105,15 +120,10 @@ export async function initImageSession(params: { prompt: string; files: File[] }
   const formData = new FormData()
   formData.append('prompt', params.prompt)
 
-  const imageFile = params.files[0]
-  if (imageFile) {
-    formData.append('image', imageFile, imageFile.name)
-  }
-
   console.log('[initSession] request', {
     prompt: params.prompt,
-    hasImage: Boolean(imageFile),
-    imageName: imageFile?.name || '',
+    hasImage: false,
+    imageName: '',
   })
 
   let res
@@ -191,7 +201,19 @@ export async function sendImageSessionMessage(params: {
     throw error
   }
 
-  const text =
+  const llmReply =
+    res.llm_reply ||
+    res.llmReply ||
+    res.data?.llm_reply ||
+    res.data?.llmReply ||
+    ''
+
+  const assistantText =
+    res.assistant_reply ||
+    res.assistantReply ||
+    res.data?.assistant_reply ||
+    res.data?.assistantReply ||
+    llmReply ||
     res.message ||
     res.reply ||
     res.text ||
@@ -218,7 +240,7 @@ export async function sendImageSessionMessage(params: {
   }
 
   return {
-    text: text || 'Request received. Image is being processed.',
+    text: assistantText || 'Request received. Generating image...',
     images: rawImages.map(normalizeImageUrl),
   }
 }
@@ -236,3 +258,4 @@ export async function fetchLatestSessionHistory(limit = 10): Promise<BackendSess
 
   return []
 }
+
