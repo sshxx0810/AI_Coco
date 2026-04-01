@@ -10,6 +10,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/app" element={<MainPage />}>
+          <Route index element={<ChatFrame />} />
           <Route path="*" element={<ChatFrame />} />
           <Route path="chat" element={<ChatFrame />} />
           <Route path="image" element={<GenImages />} />
