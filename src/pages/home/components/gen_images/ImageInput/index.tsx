@@ -19,7 +19,7 @@ export default function ImageInputBar() {
   const navigate = useNavigate()
   const location = useLocation()
   const { setCollapsed, isLoggedIn, openAuthModal } = useSidebar()
-  const { sendMessage, sending, messages } = useImageSession()
+  const { sendMessage, sending } = useImageSession()
 
   const [imgList, setImgList] = useState<UploadFile[]>([])
   const [resolution, setResolution] = useState('720P')
@@ -73,15 +73,6 @@ export default function ImageInputBar() {
 
     if (!text) {
       message.warning('请输入 prompt 后再发送')
-      return
-    }
-
-    const hasPreviousGeneratedImage = messages.some(
-      (item) => item.role === 'assistant' && item.images.length > 0
-    )
-
-    if (files.length === 0 && !hasPreviousGeneratedImage) {
-      message.warning('请先上传一张图片作为初始基图')
       return
     }
 
